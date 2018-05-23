@@ -23,6 +23,19 @@
 // Mr. Flynn can be reached at kyleflynnresident@gmail.com.
 // However, I don't often check that email.  You'd do better
 // to catch me online, which I often am.
+//
+// This software got adjusted for efficient use in OpenSim by
+// unregi Resident.
+// Changes:
+//  - Ability to open all doors by saying a command got removed
+// Thats the case because llSleep() is locking up threads in OS
+// that other scripts could use. Opening all doors at once would
+// would clog up threads.
+//  - Its possible to set the pysics shape of the door to none when
+// open by setting giOpenPhantom
+//  - Ability to play sounds got added to this script, instead of
+// relying to an other script
+//  - Lockable by link message
 // ****************************************************************
 // ****************************************************************
 // ****************************************************************
@@ -47,32 +60,48 @@ integer giDegreesToOpenDoor = 90;
 // Ideally, it should be an even divisor of giDegreesToOpenDoor, 
 // but it doesn't really matter.  The pause is also just another
 // way to slow the door down, but set giDegreesPerStep=1 before using pause.
-integer giDegreesPerStep = 9;
-float   gfSecondsPausePerStep = 0.1;
+// Since llSleep is a potential risk of lag on OpenSim, it is advised
+// to open the door fast, by either setting gfSecondsPausePerStep very low
+// or giDegreesPerStep high.
+integer giDegreesPerStep = 2;
+float   gfSecondsPausePerStep = 0.004;
 // Do we wish for the door to automatically close after some interval?
 integer gbCloseAfterTimeExpires = FALSE;
 float   gfSecondToLeaveOpen = 5.0; // Does nothing unless above is TRUE.
-//
-// Do we wish to have chat commands that open/close the doors?
-// This leaves a listener open if you do this.
-integer gbListenToOpenChatForOpenClose = TRUE; // Following are ignored if this is FALSE.
-integer giListenChannel = 0;            // 0 is open chat.
-string gsOpenCommand = "OpenDoor";      // Not case sensitive.
-string gsCloseCommand = "CloseDoor";    // Not case sensitive.
+// Do we play sounds on open doors?
+// If so, place the sound files into the object inventory
+integer giPlaySound = FALSE;
+string gsOpeningSound = "open";
+string gsClosingSound = "close";
+string gsClosedSound = "closed";
+// Should the door get set to none physics shape when open?
+// (this means that avatars can walk through it and wont get stuck or pushed)
+integer giOpenPhantom = TRUE;
+// set if the door should be able to be locked by link message
+integer gbDoorIsLockable = TRUE;
+string gsUnlockMessage = "unlock";
+string gsLockMessage = "lock";
 //
 //
 // NOTHING FROM HERE DOWN SHOULD BE TAMPERED WITH, UNLESS YOU'RE A SCRIPTER.
 //
 //
 integer    gbDoorIsClosed = TRUE;
+integer    gbDoorIsLocked = FALSE;
 vector     gvClosedDoorPos;
-rotation gqClosedDoorRot;
+rotation   gqClosedDoorRot;
+integer    giClosedDoorPhysics;
 //
-integer    giListenHandle;
-//
+
+PlaySound(string name)
+{
+    if(llGetInventoryType(name) == INVENTORY_SOUND && giPlaySound)
+        llTriggerSound(name,1.0);
+}
 
 SwingTheDoor()
 {
+    llOwnerSay("swing the door");
     // This can be thought of as quite similar to the problem of 
     // one prim orbiting another while continuing to face it, just
     // like the Moon does to the Earth.  The hinged "edge" of the
@@ -102,12 +131,17 @@ SwingTheDoor()
         // These are used to prevent the closed door from moving due to rounding errors.
         gvClosedDoorPos = llGetLocalPos();
         gqClosedDoorRot = llGetLocalRot();
+        giClosedDoorPhysics = llList2Integer(llGetLinkPrimitiveParams(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE]), 0);
         //
-        llMessageLinked(LINK_THIS, 0, "MakeOpenDoorSound", "");
+        PlaySound(gsOpeningSound);
+        //
+        if (giOpenPhantom) llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE, PRIM_PHYSICS_SHAPE_NONE]);
     }
     else
     {
         iSwingDir = iSwingDir * -1;
+        //
+        PlaySound(gsClosingSound);
     }
     // Initial parameters.
     vDoorPos = llGetLocalPos(); 
@@ -141,18 +175,23 @@ SwingTheDoor()
         // We simply add our new angle to the door's starting orientation.
         qNewRot = qDoorRot * qHingeOrbitAngle;
         // Set them both at once so there's minimal visual lag.
-        llSetLinkPrimitiveParamsFast(llGetLinkNumber(), [PRIM_POS_LOCAL, vNewPos, PRIM_ROT_LOCAL, qNewRot]);
+        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_POS_LOCAL, vNewPos, PRIM_ROT_LOCAL, qNewRot]);
         if (gfSecondsPausePerStep) llSleep(gfSecondsPausePerStep);
     }
+    llSleep(gfSecondsPausePerStep);
     // Toggle opened/closed to new state.
     gbDoorIsClosed = !gbDoorIsClosed;
+    if (gbDoorIsClosed) llOwnerSay("Door is now closed");
+    else llOwnerSay("Door is now open");
     if (gbDoorIsClosed)
     {
         // If it's now closed, make sure it's where it started.  
         // In other words, correct any rounding errors from opening and closing it.
-        llSetLinkPrimitiveParams(llGetLinkNumber(), [PRIM_POS_LOCAL, gvClosedDoorPos, PRIM_ROT_LOCAL, gqClosedDoorRot]);
+        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_POS_LOCAL, gvClosedDoorPos, PRIM_ROT_LOCAL, gqClosedDoorRot]);
         //
-        llMessageLinked(LINK_THIS, 0, "MakeCloseDoorSound", "");
+        PlaySound(gsClosedSound);
+        //
+        if (giOpenPhantom) llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE, giClosedDoorPhysics]);
     }
     else
     {
@@ -161,7 +200,7 @@ SwingTheDoor()
         vNewRadiusVector = vOrigRadiusVector * qHingeOrbitAngle;
         vNewPos = vHingePos + vNewRadiusVector;
         qNewRot = qDoorRot * qHingeOrbitAngle;
-        llSetLinkPrimitiveParams(llGetLinkNumber(), [PRIM_POS_LOCAL, vNewPos, PRIM_ROT_LOCAL, qNewRot]);
+        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_POS_LOCAL, vNewPos, PRIM_ROT_LOCAL, qNewRot]);
         // If auto-close, set timer.
         if (gbCloseAfterTimeExpires) llSetTimerEvent(gfSecondToLeaveOpen);
     }
@@ -173,20 +212,11 @@ default
     {
         llResetScript();
     }
-    state_entry()
+    touch_start(integer iNumDetected) 
     {
-        if (gbListenToOpenChatForOpenClose) giListenHandle = llListen(giListenChannel, "", "", "");
-    }
-    listen(integer iChannel, string sSenderPrimOrAviLegacyName, key kSenderKey, string sMsg)
-    {
-        if (llToUpper(sMsg) == llToUpper(gsOpenCommand))  if (gbDoorIsClosed == TRUE)  SwingTheDoor();
-        if (llToUpper(sMsg) == llToUpper(gsCloseCommand)) if (gbDoorIsClosed == FALSE) SwingTheDoor();
-    }
-    touch(integer iNumDetected) 
-    {
-        if (llGetTime() < 1.0) return; // Prevent double-clicks and LSL bug.
-        //
+        if (llGetTime() < 0.5) return; // Prevent double-clicks and LSL bug.
         llResetTime();
+        if (gbDoorIsLocked && gbDoorIsClosed) return;
         SwingTheDoor();
     }
     timer() 
@@ -194,7 +224,11 @@ default
         llSetTimerEvent(0.0);
         if (!gbDoorIsClosed) SwingTheDoor();
     }
+    link_message(integer link_num, integer num, string msg, key id)
+    {
+        if (!gbDoorIsLockable) return;
+        if (msg == gsLockMessage) gbDoorIsLocked = TRUE;
+        if (msg == gsUnlockMessage) gbDoorIsLocked = FALSE;
+    }
 }
-
-
 
