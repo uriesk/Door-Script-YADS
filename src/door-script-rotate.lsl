@@ -38,6 +38,7 @@
 //  - Ability to play sounds got added to this script, instead of
 // relying to an other script
 //  - Lockable by link message
+//  - Ability to pair doors with link messages
 // ****************************************************************
 // ****************************************************************
 // ****************************************************************
