@@ -1,4 +1,4 @@
-//### door-script.lsl
+//### door-script-hinged.lsl
 //
 // SWING A HINGED DOOR.  NO NEED FOR A SECOND PRIM.
 // Works on stand-alone prim doors, a door of several linked parts,
