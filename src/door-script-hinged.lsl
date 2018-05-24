@@ -65,7 +65,7 @@ integer giDegreesToOpenDoor = 90;
 // to open the door fast, by either setting gfSecondsPausePerStep very low
 // or giDegreesPerStep high.
 integer giDegreesPerStep = 2;
-float   gfSecondsPausePerStep = 0.004;
+float   gfSecondsPausePerStep = 0.008;
 // Do we wish for the door to automatically close after some interval?
 integer gbCloseAfterTimeExpires = FALSE;
 float   gfSecondToLeaveOpen = 5.0; // Does nothing unless above is TRUE.
@@ -137,11 +137,13 @@ SwingTheDoor()
         // These are used to prevent the closed door from moving due to rounding errors.
         gvClosedDoorPos = llGetLocalPos();
         gqClosedDoorRot = llGetLocalRot();
-        giClosedDoorPhysics = llList2Integer(llGetLinkPrimitiveParams(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE]), 0);
         //
         PlaySound(gsOpeningSound);
         //
-        if (giOpenPhantom) llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE, PRIM_PHYSICS_SHAPE_NONE]);
+        if (giOpenPhantom) {
+            giClosedDoorPhysics = llList2Integer(llGetLinkPrimitiveParams(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE]), 0);
+            llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE, PRIM_PHYSICS_SHAPE_NONE]);
+        }
         //
         if (gbDoorIsPaired) llMessageLinked(giLinkOfPaired, 0, "opendoor", NULL_KEY);
     }
@@ -221,7 +223,10 @@ default
     }
     touch_start(integer iNumDetected) 
     {
-        if (gbDoorIsLocked && gbDoorIsClosed) return;
+        if (gbDoorIsLocked && gbDoorIsClosed) {
+            llWhisper(0, "This door is locked.");
+            return;
+        }
         SwingTheDoor();
     }
     timer() 
@@ -234,7 +239,7 @@ default
         if (!gbDoorIsLockable && (!gbDoorIsPaired || link_num != giLinkOfPaired)) return;
         if (msg == gsLockMessage) gbDoorIsLocked = TRUE;
         if (msg == gsUnlockMessage) gbDoorIsLocked = FALSE;
-        if ( (msg == "opendoor" && !gbDoorIsLocked && gbDoorIsClosed) || (msg == "closedoor" && !gbDoorIsClosed) ) SwingTheDoor();
+        if ( (msg == "opendoor" && !gbDoorIsLocked && gbDoorIsClosed && link_num == giLinkOfPaired) || (msg == "closedoor" && !gbDoorIsClosed && link_num == giLinkOfPaired) ) SwingTheDoor();
     }
 }
 

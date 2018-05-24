@@ -1,4 +1,4 @@
-//### door-script-rotate.lsl
+//### door-script-slide.lsl
 //
 // SWING A HINGED DOOR.  NO NEED FOR A SECOND PRIM.
 // Works on stand-alone prim doors, a door of several linked parts,
@@ -25,10 +25,9 @@
 // to catch me online, which I often am.
 //
 // This software got adjusted for efficient use in OpenSim by
-// unregi Resident. This version of the script is for none-hinged
-// doors that just need rotating.
+// unregi Resident. And changed into a sliding version
 // Changes:
-//  - Removed all the stuff for hinged doors
+//  - Replaced hinged rotation with sliding
 //  - Ability to open all doors by saying a command got removed
 // Thats the case because llSleep() is locking up threads in OS
 // that other scripts could use. Opening all doors at once would
@@ -47,12 +46,13 @@
 // A FEW USER DEFINED PARAMETERS FOLLOW.  THEY CAN BE CUSTOMIZED FOR SPECIFIC DOORS:
 //
 //
-// The following must be 1 or -1.
-// It just specifies which direction the door opens.
-integer giSwingDirection = 1;
-// The following can be any number but something around 90, 
-// or maybe up 140 makes sense.
-integer giDegreesToOpenDoor = 90;
+// the following must be either -1 or 1, it specifies 
+// the direction to slide to
+integer giSlideDirection = 1;
+// The following can be any number,
+// it is the percentage to slide, according to is dimension,
+// so 100 means that it is sliding exactly one width of the door 
+integer giPercentageToOpenDoor = 100;
 // The following basically specifies how fast the door opens.
 // It's how many degrees the door opens on each loop step.
 // To make it just "pop" open, set it to the same as giDegreesToOpenDoor.
@@ -62,7 +62,7 @@ integer giDegreesToOpenDoor = 90;
 // Since llSleep is a potential risk of lag on OpenSim, it is advised
 // to open the door fast, by either setting gfSecondsPausePerStep very low
 // or giDegreesPerStep high.
-integer giDegreesPerStep = 2;
+integer giPercentPerStep = 2;
 float   gfSecondsPausePerStep = 0.004;
 // Do we wish for the door to automatically close after some interval?
 integer gbCloseAfterTimeExpires = FALSE;
@@ -91,6 +91,7 @@ integer giLinkOfPaired = 10;
 //
 integer    gbDoorIsClosed = TRUE;
 integer    gbDoorIsLocked = FALSE;
+vector     gvClosedDoorPos;
 rotation   gqClosedDoorRot;
 integer    giClosedDoorPhysics;
 //
@@ -105,22 +106,28 @@ SwingTheDoor()
 {
     if (llGetTime() < 0.8) return; // Prevent double-clicks and LSL bug.
     llResetTime();
+    // This can be thought of as quite similar to the problem of 
+    // one prim orbiting another while continuing to face it, just
+    // like the Moon does to the Earth.  The hinged "edge" of the
+    // door stays facing the spot on which it is hinged, while
+    // the center of the door orbits this point with a radius of
+    // half the door width.
+    vector     vDoorPos;
+    vector     vDoorScale;
     //
-    rotation qDoorRot;
+    vector     vFrameSlideVector;
     integer    iStepCount;
-    rotation qHingeOrbitStep;
-    rotation qHingeOrbitAngle;
     //
-    rotation qNewRot;
+    vector     vNewPos;
     //
-    integer    iSwingDir;
+    integer    iSlideDir;
     //
     // Figure out whether we're opening or closing.
-    iSwingDir = giSwingDirection;
+    iSlideDir = giSlideDirection;
     if (gbDoorIsClosed)
     {
         // These are used to prevent the closed door from moving due to rounding errors.
-        gqClosedDoorRot = llGetLocalRot();
+        gvClosedDoorPos = llGetLocalPos();
         //
         PlaySound(gsOpeningSound);
         //
@@ -133,28 +140,27 @@ SwingTheDoor()
     }
     else
     {
-        iSwingDir = iSwingDir * -1;
+        iSlideDir = iSlideDir * -1;
         //
         PlaySound(gsClosingSound);
         //
         if (gbDoorIsPaired) llMessageLinked(giLinkOfPaired, 0, "closedoor", NULL_KEY);
     }
     // Initial parameters.
-    qDoorRot = llGetLocalRot();
+    vDoorPos = llGetLocalPos(); 
+    vDoorScale = llGetScale();
+    vFrameSlideVector = <0.0, 0.0, 0.0>; 
     //
-    // The door orbits in the Z axis (XY plane).
-    // Also, we account for swing direction here.
-    qHingeOrbitStep = llEuler2Rot(<0.0, 0.0, giDegreesPerStep * DEG_TO_RAD * iSwingDir>);
+    // Create a movement vector for one frame, according to the scale of the prim
+    if (vDoorScale.x > vDoorScale.y) vFrameSlideVector.x = vDoorScale.x * giPercentPerStep / 100 * iSlideDir;
+    else                             vFrameSlideVector.y = vDoorScale.y * giPercentPerStep / 100 * iSlideDir;
     // Start an increment loop to slowly open the door.
-    for(iStepCount = 1; iStepCount * giDegreesPerStep <= giDegreesToOpenDoor; iStepCount++)
+    for(iStepCount = 1; iStepCount * giPercentPerStep <= giPercentageToOpenDoor; iStepCount++)
     {
-        // Figure out the angle to orbit on this step (from the beginning so no errors accumulate).
-        qHingeOrbitAngle = llAxisAngle2Rot(llRot2Axis(qHingeOrbitStep), iStepCount * llRot2Angle(qHingeOrbitStep));
-        //qHingeOrbitAngle = llEuler2Rot(<0,0,1> * iStepCount * giDegreesPerStep * DEG_TO_RAD * iSwingDir);
-        // We simply add our new angle to the door's starting orientation.
-        qNewRot = qDoorRot *llGetRootRotation() * qHingeOrbitAngle;
-        // Set it fast
-        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_ROT_LOCAL, qNewRot / llGetRootRotation()]);
+        // calculate new position from the closed position, to accumulate for rounding errors
+        vNewPos = gvClosedDoorPos + vFrameSlideVector * iStepCount;
+        // set the new position fast
+        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_POS_LOCAL, vNewPos]);
         if (gfSecondsPausePerStep) llSleep(gfSecondsPausePerStep);
     }
     // Toggle opened/closed to new state.
@@ -163,8 +169,7 @@ SwingTheDoor()
     {
         // If it's now closed, make sure it's where it started.  
         // In other words, correct any rounding errors from opening and closing it.
-        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_ROT_LOCAL, gqClosedDoorRot]);
-        llOwnerSay("Endposition");
+        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_POS_LOCAL, gvClosedDoorPos]);
         //
         PlaySound(gsClosedSound);
         //
@@ -172,10 +177,9 @@ SwingTheDoor()
     }
     else
     {
-        // Make sure it's open to specified degrees.
-        //qHingeOrbitAngle = llEuler2Rot(<0.0, 0.0, giDegreesToOpenDoor * DEG_TO_RAD * iSwingDir>);
-        //qNewRot = qDoorRot * qHingeOrbitAngle;
-        //llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_ROT_LOCAL, qNewRot]);
+        // Make sure it's really open to the given level
+        vNewPos = gvClosedDoorPos + vFrameSlideVector * iStepCount;
+        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_POS_LOCAL, vNewPos]);
         // If auto-close, set timer.
         if (gbCloseAfterTimeExpires) llSetTimerEvent(gfSecondToLeaveOpen);
     }
@@ -203,7 +207,6 @@ default
     link_message(integer link_num, integer num, string msg, key id)
     {
         if (!gbDoorIsLockable && (!gbDoorIsPaired || link_num != giLinkOfPaired)) return;
-        if (!gbDoorIsLockable) return;
         if (msg == gsLockMessage) gbDoorIsLocked = TRUE;
         if (msg == gsUnlockMessage) gbDoorIsLocked = FALSE;
         if ( (msg == "opendoor" && !gbDoorIsLocked && gbDoorIsClosed && link_num == giLinkOfPaired) || (msg == "closedoor" && !gbDoorIsClosed && link_num == giLinkOfPaired) ) SwingTheDoor();
