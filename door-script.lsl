@@ -1,4 +1,5 @@
 //### door-script.lsl
+// Version 1.0
 //
 // DOOR SCRIPT FOR SWINGING, ROTATING AND SLIDING DOORS.
 // Works on stand-alone prim doors, a door of several linked parts,
@@ -8,7 +9,7 @@
 // FOR FAST USE, THIS SCRIPT IS SUPPOSED TO BE CONFIGURED IN THE 
 // DESCRIPTION FIELD OF THE DOOR.
 // YOU SHOULD HAVE GOOTEN A DESCRIPTION NOTECARD WITH IT, THAT LISTS
-// ALL POSSIBLE CONFIGUREATION OPTIONS.
+// ALL POSSIBLE CONFIGURATION OPTIONS.
 //
 // ****************************************************************
 // ****************************************************************
@@ -170,13 +171,13 @@ TriggerTheDoor()
     iDirection = giOpenDirection;
     if (gbDoorIsClosed)
     {
-        gvClosedDoorPos = llGetLocalPos();
-        gqClosedDoorRot = llGetLocalRot();
+
+        list lDoorParams = llGetLinkPrimitiveParams(LINK_THIS, [PRIM_POS_LOCAL, PRIM_ROT_LOCAL, PRIM_PHYSICS_SHAPE_NONE]);
+        gvClosedDoorPos = llList2Vector(lDoorParams, 0);
+        gqClosedDoorRot = llList2Rot(lDoorParams, 1);
+        giClosedDoorPhysics = llList2Integer(lDoorParams, 2);
         PlaySound(gsOpeningSound);
-        if (giOpenPhantom) {
-            giClosedDoorPhysics = llList2Integer(llGetLinkPrimitiveParams(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE]), 0);
-            llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE, PRIM_PHYSICS_SHAPE_NONE]);
-        }
+        if (giOpenPhantom) llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE, PRIM_PHYSICS_SHAPE_NONE]);
         if (gbDoorIsPaired) llMessageLinked(giLinkOfPaired, 0, "opendoor", NULL_KEY);
     }
     else
