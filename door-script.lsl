@@ -87,6 +87,8 @@ string gsLockMessage = "lock";
 // use this if you have a paire of doors that needs to open/close together
 integer gbDoorIsPaired = FALSE;
 integer giLinkOfPaired = 10;
+// set if the door should open on collision (when Avatar is bumping into it)
+integer gbBumpOpen = FALSE;
 //
 //
 // NOTHING FROM HERE DOWN SHOULD BE TAMPERED WITH, UNLESS YOU'RE A SCRIPTER.
@@ -125,6 +127,7 @@ LoadConfig()
         else if (sKey == "SOUND") giPlaySound = TRUE;
         else if (sKey == "PHANTOM") giOpenPhantom = TRUE;
         else if (sKey == "LOCKABLE") gbDoorIsLockable = TRUE;
+        else if (sKey == "BUMP" || sKey == "BO") gbBumpOpen = TRUE;
         else if (sKey == "LI") {
             giHingeSide = 1;
             giOpenDirection = 1;
@@ -148,7 +151,7 @@ LoadConfig()
             gbDoorIsPaired = TRUE;
             giLinkOfPaired = llList2Integer(lKeys, ++iCnt);
         }
-        else if (sKey == "AUTOCLOSE") {
+        else if (sKey == "AUTOCLOSE" || sKey == "AC") {
             gbCloseAfterTimeExpires = TRUE;
             gfSecondToLeaveOpen = llList2Float(lKeys, ++iCnt);
         }
@@ -372,6 +375,10 @@ default
             llWhisper(0, "This door is locked.");
             return;
         }
+        TriggerTheDoor();
+    }
+    collision_start(integer iNumDetected) {
+        if (!gbBumpOpen || !gbDoorIsClosed || gbDoorIsLocked) return;
         TriggerTheDoor();
     }
     timer() 
