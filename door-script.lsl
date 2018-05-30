@@ -1,5 +1,5 @@
 //### door-script.lsl
-// Version 1.0
+// Version 1.01
 //
 // DOOR SCRIPT FOR SWINGING, ROTATING AND SLIDING DOORS.
 // Works on stand-alone prim doors, a door of several linked parts,
@@ -124,9 +124,9 @@ LoadConfig()
         else if (sKey == "ROTATE" || sKey == "HINGED" || sKey == "SLIDE") gsDoorType = sKey;
         else if (sKey == "CCW" || sKey == "LEFT" || sKey == "DOWN") giOpenDirection = 1;
         else if (sKey == "CW" || sKey == "RIGHT" || sKey == "UP") giOpenDirection = -1;
-        else if (sKey == "SOUND") giPlaySound = TRUE;
-        else if (sKey == "PHANTOM") giOpenPhantom = TRUE;
-        else if (sKey == "LOCKABLE") gbDoorIsLockable = TRUE;
+        else if (sKey == "SOUND" || sKey == "SND") giPlaySound = TRUE;
+        else if (sKey == "PHANTOM" || sKey = "PH") giOpenPhantom = TRUE;
+        else if (sKey == "LOCKABLE" || sKey == "LCK") gbDoorIsLockable = TRUE;
         else if (sKey == "BUMP" || sKey == "BO") gbBumpOpen = TRUE;
         else if (sKey == "LI") {
             giHingeSide = 1;
@@ -144,10 +144,10 @@ LoadConfig()
             giHingeSide = -1;
             giOpenDirection = 1;
         }
-        else if (llGetSubString(sKey, -1, -1) == "°" || llGetSubString(sKey, -1, -1) == "%") {
+        else if (llGetSubString(sKey, -1, -1) == "%") {
             giUnitsToOpenDoor = (integer)(llGetSubString(sKey, 0, -2));
         }
-        else if (sKey == "PAIRED") {
+        else if (sKey == "PAIRED" || sKey == "PRD") {
             gbDoorIsPaired = TRUE;
             giLinkOfPaired = llList2Integer(lKeys, ++iCnt);
         }
