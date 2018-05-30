@@ -4,12 +4,13 @@
 // DOOR SCRIPT FOR SWINGING, ROTATING AND SLIDING DOORS.
 // Works on stand-alone prim doors, a door of several linked parts,
 // Or even a door that's a linked child of a larger house.  If the door
-// is the root, all the links will move.  If the door is just a linked,
-// child then only the door will move.
+// is the root, all the links will move.  If the door is a linked
+// child, then only the door will move.
 // FOR FAST USE, THIS SCRIPT IS SUPPOSED TO BE CONFIGURED IN THE 
 // DESCRIPTION FIELD OF THE DOOR.
-// YOU SHOULD HAVE GOOTEN A DESCRIPTION NOTECARD WITH IT, THAT LISTS
-// ALL POSSIBLE CONFIGURATION OPTIONS.
+// YOU SHOULD HAVE GOOTEN A NOTECARD AND IMAGES WITH IT, THAT LIST
+// ALL POSSIBLE CONFIGURATION OPTIONS. IF YOU DID NOT RECEIVE THEM
+// GET THEM at https://github.com/uriesk/Door-Script-YASM
 //
 // ****************************************************************
 // ****************************************************************
