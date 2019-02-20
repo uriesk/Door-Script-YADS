@@ -126,7 +126,7 @@ LoadConfig()
         else if (sKey == "CCW" || sKey == "LEFT" || sKey == "DOWN") giOpenDirection = 1;
         else if (sKey == "CW" || sKey == "RIGHT" || sKey == "UP") giOpenDirection = -1;
         else if (sKey == "SOUND" || sKey == "SND") giPlaySound = TRUE;
-        else if (sKey == "PHANTOM" || sKey = "PH") giOpenPhantom = TRUE;
+        else if (sKey == "PHANTOM" || sKey == "PH") giOpenPhantom = TRUE;
         else if (sKey == "LOCKABLE" || sKey == "LCK") gbDoorIsLockable = TRUE;
         else if (sKey == "BUMP" || sKey == "BO") gbBumpOpen = TRUE;
         else if (sKey == "LI") {
