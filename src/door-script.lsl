@@ -176,7 +176,7 @@ TriggerTheDoor()
     if (gbDoorIsClosed)
     {
 
-        list lDoorParams = llGetLinkPrimitiveParams(LINK_THIS, [PRIM_POS_LOCAL, PRIM_ROT_LOCAL, PRIM_PHYSICS_SHAPE_NONE]);
+        list lDoorParams = llGetLinkPrimitiveParams(LINK_THIS, [PRIM_POS_LOCAL, PRIM_ROT_LOCAL, PRIM_PHYSICS_SHAPE_TYPE]);
         gvClosedDoorPos = llList2Vector(lDoorParams, 0);
         gqClosedDoorRot = llList2Rot(lDoorParams, 1);
         giClosedDoorPhysics = llList2Integer(lDoorParams, 2);
