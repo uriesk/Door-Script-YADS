@@ -165,6 +165,19 @@ LoadConfig()
 
 }
 
+ResetPhantom()
+{
+    if (!giOpenPhantom) return;
+    if (llGetLinkNumber() != 0)
+    {
+        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE, giClosedDoorPhysics]);
+    }
+    else
+    {
+        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHANTOM, giClosedDoorPhysics]);
+    }
+}
+
 TriggerTheDoor()
 {
     if (llGetTime() < 0.8) return;
@@ -176,12 +189,23 @@ TriggerTheDoor()
     if (gbDoorIsClosed)
     {
 
-        list lDoorParams = llGetLinkPrimitiveParams(LINK_THIS, [PRIM_POS_LOCAL, PRIM_ROT_LOCAL, PRIM_PHYSICS_SHAPE_TYPE]);
+        list lDoorParams = llGetLinkPrimitiveParams(LINK_THIS, [PRIM_POS_LOCAL, PRIM_ROT_LOCAL, PRIM_PHYSICS_SHAPE_TYPE, PRIM_PHANTOM]);
         gvClosedDoorPos = llList2Vector(lDoorParams, 0);
         gqClosedDoorRot = llList2Rot(lDoorParams, 1);
-        giClosedDoorPhysics = llList2Integer(lDoorParams, 2);
         PlaySound(gsOpeningSound);
-        if (giOpenPhantom) llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE, PRIM_PHYSICS_SHAPE_NONE]);
+        if (giOpenPhantom)
+        {
+            if (llGetLinkNumber() != 0)
+            {
+                giClosedDoorPhysics = llList2Integer(lDoorParams, 2);
+                llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE, PRIM_PHYSICS_SHAPE_NONE]);
+            }
+            else
+            {
+                giClosedDoorPhysics = llList2Integer(lDoorParams, 3);
+                llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHANTOM, TRUE]);
+            }
+        }
         if (gbDoorIsPaired) llMessageLinked(giLinkOfPaired, 0, "opendoor", NULL_KEY);
     }
     else
@@ -223,7 +247,7 @@ RotateTheDoor(integer iSwingDir)
     {
         llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_ROT_LOCAL, gqClosedDoorRot]);
         PlaySound(gsClosedSound);
-        if (giOpenPhantom) llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE, giClosedDoorPhysics]);
+        ResetPhantom();
     }
     else
     {
@@ -293,7 +317,7 @@ SwingTheDoor(integer iSwingDir)
     {
         llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_POS_LOCAL, gvClosedDoorPos, PRIM_ROT_LOCAL, gqClosedDoorRot]);
         PlaySound(gsClosedSound);
-        if (giOpenPhantom) llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE, giClosedDoorPhysics]);
+        ResetPhantom();
     }
     else
     {
@@ -348,7 +372,7 @@ SlideTheDoor(integer iSlideDir)
     {
         llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_POS_LOCAL, gvClosedDoorPos, PRIM_ROT_LOCAL, gqClosedDoorRot]);
         PlaySound(gsClosedSound);
-        if (giOpenPhantom) llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE, giClosedDoorPhysics]);
+        ResetPhantom();
     }
     else
     {
