@@ -40,7 +40,10 @@
 //
 //
 // Following is the type of the door, it can be "ROTATE", "HINGED" or "SLIDE"
-string gsDoorType = "ROTATE";
+// 1: ROTATE
+// 2: HINGED
+// 3: SLIDE
+integer giDoorType = 1;
 // The following is the rotation / sliding axes, usually, doors rotate around z.
 // and slide around x or y
 // It can be uppercase X, Y or Z
@@ -134,7 +137,9 @@ LoadConfig()
     do {
         string sKey = llToUpper(llList2String(lKeys, iCnt));
         if (sKey == "X" || sKey == "Y" || sKey == "Z") gsMovementAxes = sKey;
-        else if (sKey == "ROTATE" || sKey == "HINGED" || sKey == "SLIDE") gsDoorType = sKey;
+        else if (sKey == "ROTATE") giDoorType = 1;
+        else if (sKey == "HINGED") giDoorType = 2;
+        else if (sKey == "SLIDE") giDoorType = 3;
         else if (sKey == "CCW" || sKey == "LEFT" || sKey == "DOWN") giOpenDirection = 1;
         else if (sKey == "CW" || sKey == "RIGHT" || sKey == "UP") giOpenDirection = -1;
         else if (sKey == "SOUND" || sKey == "SND") giPlaySound = TRUE;
@@ -228,10 +233,12 @@ TriggerTheDoor()
         PlaySound(gsClosingSound);
         if (giLinkOfPaired >= 0) llMessageLinked(giLinkOfPaired, 0, "closedoor", NULL_KEY);
     }
-    //
-    if (gsDoorType == "ROTATE") RotateTheDoor(iDirection, ownLinkNumber);
-    else if (gsDoorType == "HINGED") SwingTheDoor(iDirection, ownLinkNumber);
-    else if (gsDoorType == "SLIDE") SlideTheDoor(iDirection, ownLinkNumber);
+    // ROTATE
+    if (giDoorType == 1) RotateTheDoor(iDirection, ownLinkNumber);
+    // HINGED
+    else if (giDoorType == 2) SwingTheDoor(iDirection, ownLinkNumber);
+    // SLIDE
+    else if (giDoorType == 3) SlideTheDoor(iDirection, ownLinkNumber);
 }
 
 RotateTheDoor(integer iSwingDir, integer linkNumber)
