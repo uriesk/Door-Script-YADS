@@ -35,11 +35,11 @@
 // ****************************************************************
 //
 //
-// A FEW DEFAULT PARAMETERS FOLLOW, THOSE ARE THE VALUES THE SCRIPT USES IF
+// A FEW DEFAULT PARAMETERS FOLLOW, THOSE ARE VALUES THE SCRIPT USES IF
 // THERE ARE NO CONFIGURATION VALUES IN THE DESCRIPTION FIELD
 //
 //
-// Following is the type of the door, it can be "ROTATE", "HINGED" or "SLIDE"
+// Following is the type of the door
 // 1: ROTATE
 // 2: HINGED
 // 3: SLIDE
@@ -217,6 +217,7 @@ TriggerTheDoor()
         PlaySound("close");
         if (giLinkOfPaired >= 0) llMessageLinked(giLinkOfPaired, 0, "closedoor", NULL_KEY);
     }
+
     // ROTATE
     if (giDoorType == 1) RotateTheDoor(iDirection, ownLinkNumber);
     // HINGED
@@ -410,7 +411,7 @@ SlideTheDoor(integer iSlideDir, integer linkNumber)
         vNewPos = vDoorPos + vOpenVector;
         llSetLinkPrimitiveParamsFast(linkNumber, [PRIM_POS_LOCAL, vNewPos]);
         if (giLinkOfSecondPart > 0) llSetLinkPrimitiveParamsFast(giLinkOfSecondPart, [PRIM_POS_LOCAL, vNewPos]);
-        
+
         if (gfSecondToLeaveOpen > 0.1) llSetTimerEvent(gfSecondToLeaveOpen);
     }
 }
