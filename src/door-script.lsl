@@ -46,8 +46,10 @@
 integer giDoorType = 1;
 // The following is the rotation / sliding axes, usually, doors rotate around z.
 // and slide around x or y
-// It can be uppercase X, Y or Z
-string gsMovementAxes = "Z";
+// 1: X
+// 2: Y
+// 3: Z
+integer giMovementAxes = 3;
 // The following must be either 1 or -1.
 // It simply specifies which side of the door the hinges are on.
 // If they're on the wrong side, just change it.
@@ -76,10 +78,10 @@ float   gfSecondsPausePerStep = 0.004;
 float   gfSecondToLeaveOpen = 0.0; // Does nothing unless above is TRUE.
 // Do we play sounds on open doors?
 // If so, place the sound files into the object inventory
-integer giPlaySound = FALSE;
+integer gbPlaySound = FALSE;
 // Should the door get set to none physics shape when open?
 // (this means that avatars can walk through it and wont get stuck or pushed)
-integer giOpenPhantom = FALSE;
+integer gbOpenPhantom = FALSE;
 // set if the door should be able to be locked by link message
 integer gbDoorIsLockable = FALSE;
 string gsUnlockMessage = "unlock";
@@ -108,8 +110,7 @@ integer    giClosedDoorPhysics;
 
 PlaySound(string name)
 {
-    if(llGetInventoryType(name) == INVENTORY_SOUND && giPlaySound) llTriggerSound(name, 1.0);
-    llMessageLinked(LINK_SET, 0, name, NULL_KEY);
+    if(llGetInventoryType(name) == INVENTORY_SOUND && gbPlaySound) llTriggerSound(name, 1.0);
 }
 
 LoadConfig()
@@ -121,8 +122,8 @@ LoadConfig()
     giLinkOfPaired = -1;
     giLinkOfSecondPart = -1;
     gfSecondToLeaveOpen = 0.0;
-    giPlaySound = FALSE;
-    giOpenPhantom = FALSE;
+    gbPlaySound = FALSE;
+    gbOpenPhantom = FALSE;
     gbDoorIsLockable = FALSE;
     gbBumpOpen = FALSE;
 
@@ -133,14 +134,16 @@ LoadConfig()
     integer iCnt = 1;
     do {
         string sKey = llToUpper(llList2String(lKeys, iCnt));
-        if (sKey == "X" || sKey == "Y" || sKey == "Z") gsMovementAxes = sKey;
+        if (sKey == "X") giMovementAxes = 1;
+        else if (sKey == "Y") giMovementAxes = 2;
+        else if (sKey == "Z") giMovementAxes = 3;
         else if (sKey == "ROTATE") giDoorType = 1;
         else if (sKey == "HINGED") giDoorType = 2;
         else if (sKey == "SLIDE") giDoorType = 3;
         else if (sKey == "CCW" || sKey == "LEFT" || sKey == "DOWN") giOpenDirection = 1;
         else if (sKey == "CW" || sKey == "RIGHT" || sKey == "UP") giOpenDirection = -1;
-        else if (sKey == "SOUND" || sKey == "SND") giPlaySound = TRUE;
-        else if (sKey == "PHANTOM" || sKey == "PH") giOpenPhantom = TRUE;
+        else if (sKey == "SOUND" || sKey == "SND") gbPlaySound = TRUE;
+        else if (sKey == "PHANTOM" || sKey == "PH") gbOpenPhantom = TRUE;
         else if (sKey == "LOCKABLE" || sKey == "LCK") gbDoorIsLockable = TRUE;
         else if (sKey == "BUMP" || sKey == "BO") gbBumpOpen = TRUE;
         else if (sKey == "LI") {
@@ -196,7 +199,7 @@ TriggerTheDoor()
         gvClosedDoorPos = llList2Vector(lDoorParams, 0);
         gqClosedDoorRot = llList2Rot(lDoorParams, 1);
         PlaySound("open");
-        if (giOpenPhantom)
+        if (gbOpenPhantom)
         {
             if (ownLinkNumber > 1)
             {
@@ -228,7 +231,7 @@ TriggerTheDoor()
     if (gbDoorIsClosed)
     {
         PlaySound("closed");
-        if (giOpenPhantom)
+        if (gbOpenPhantom)
         {
             if (ownLinkNumber > 1)
             {
@@ -242,6 +245,7 @@ TriggerTheDoor()
     }
     else
     {
+        if (gfSecondToLeaveOpen > 0.1) llSetTimerEvent(gfSecondToLeaveOpen);
         PlaySound("opened");
     }
 }
@@ -257,9 +261,9 @@ RotateTheDoor(integer iSwingDir, integer linkNumber)
     list lParams = llGetLinkPrimitiveParams(linkNumber, [PRIM_ROT_LOCAL]);
     qDoorRot = llList2Rot(lParams, 0);
     vRotAxes = <0.0, 0.0, 0.0>;
-    if (gsMovementAxes == "X") vRotAxes.x = 1.0;
-    else if (gsMovementAxes == "Y") vRotAxes.y = 1.0;
-    else if (gsMovementAxes == "Z") vRotAxes.z = 1.0;
+    if (giMovementAxes == 1) vRotAxes.x = 1.0;
+    else if (giMovementAxes == 2) vRotAxes.y = 1.0;
+    else if (giMovementAxes == 3) vRotAxes.z = 1.0;
     // Start an increment loop to slowly open the door.
     for(iStepCount = 1; iStepCount * giUnitsPerStep <= giUnitsToOpenDoor; iStepCount++)
     {
@@ -282,7 +286,6 @@ RotateTheDoor(integer iSwingDir, integer linkNumber)
         qNewRot = qHingeOrbitAngle * qDoorRot;
         llSetLinkPrimitiveParamsFast(linkNumber, [PRIM_ROT_LOCAL, qNewRot]);
         if (giLinkOfSecondPart > 0) llSetLinkPrimitiveParamsFast(giLinkOfSecondPart, [PRIM_ROT_LOCAL, qNewRot]);
-        if (gfSecondToLeaveOpen > 0.1) llSetTimerEvent(gfSecondToLeaveOpen);
     }
 }
 
@@ -313,17 +316,17 @@ SwingTheDoor(integer iSwingDir, integer linkNumber)
     vOrigRadiusVector = <0.0, 0.0, 0.0>; 
     vRotAxes = <0.0, 0.0, 0.0>;
     // Figure out center-to-side distance of door, according to the longer side of the none-rotation axis.
-    if (gsMovementAxes == "Z") {
+    if (giMovementAxes == 3) {
         vRotAxes.z = 1.0; 
         if (vDoorScale.x > vDoorScale.y) vOrigRadiusVector.x = vOrigRadiusVector.x + giHingeSide * vDoorScale.x / 2;
         else                             vOrigRadiusVector.y = vOrigRadiusVector.y + giHingeSide * vDoorScale.y / 2;
     }
-    else if (gsMovementAxes == "Y") {
+    else if (giMovementAxes == 2) {
         vRotAxes.y = 1.0; 
         if (vDoorScale.x > vDoorScale.z) vOrigRadiusVector.x = vOrigRadiusVector.x + giHingeSide * vDoorScale.x / 2;
         else                             vOrigRadiusVector.z = vOrigRadiusVector.z + giHingeSide * vDoorScale.z / 2;
     }
-    else if (gsMovementAxes == "X") {
+    else if (giMovementAxes == 1) {
         vRotAxes.x = 1.0; 
         if (vDoorScale.y > vDoorScale.z) vOrigRadiusVector.y = vOrigRadiusVector.y + giHingeSide * vDoorScale.y / 2;
         else                             vOrigRadiusVector.z = vOrigRadiusVector.z + giHingeSide * vDoorScale.z / 2;
@@ -356,7 +359,6 @@ SwingTheDoor(integer iSwingDir, integer linkNumber)
         qNewRot = qHingeOrbitAngle * qDoorRot;
         llSetLinkPrimitiveParamsFast(linkNumber, [PRIM_POS_LOCAL, vNewPos, PRIM_ROT_LOCAL, qNewRot]);
         if (giLinkOfSecondPart > 0) llSetLinkPrimitiveParamsFast(giLinkOfSecondPart, [PRIM_POS_LOCAL, vNewPos, PRIM_ROT_LOCAL, qNewRot]);
-        if (gfSecondToLeaveOpen > 0.1) llSetTimerEvent(gfSecondToLeaveOpen);
     }
 }
 
@@ -377,15 +379,15 @@ SlideTheDoor(integer iSlideDir, integer linkNumber)
     qDoorRot = llList2Rot(lParams, 1);
     vDoorScale = llList2Vector(lParams, 2);
     vMoveDirection = <0.0, 0.0, 0.0>;
-    if (gsMovementAxes == "X") {
+    if (giMovementAxes == 1) {
         vMoveDirection.x = 1.0;
         fDoorWidth = vDoorScale.x;
     }
-    else if (gsMovementAxes == "Y") {
+    else if (giMovementAxes == 2) {
         vMoveDirection.y = 1.0;
         fDoorWidth = vDoorScale.y;
     }
-    else if (gsMovementAxes == "Z") {
+    else if (giMovementAxes == 3) {
         vMoveDirection.z = 1.0;
         fDoorWidth = vDoorScale.z;
     }
@@ -411,8 +413,6 @@ SlideTheDoor(integer iSlideDir, integer linkNumber)
         vNewPos = vDoorPos + vOpenVector;
         llSetLinkPrimitiveParamsFast(linkNumber, [PRIM_POS_LOCAL, vNewPos]);
         if (giLinkOfSecondPart > 0) llSetLinkPrimitiveParamsFast(giLinkOfSecondPart, [PRIM_POS_LOCAL, vNewPos]);
-
-        if (gfSecondToLeaveOpen > 0.1) llSetTimerEvent(gfSecondToLeaveOpen);
     }
 }
 
@@ -442,10 +442,12 @@ default
     }
     link_message(integer link_num, integer num, string msg, key id)
     {
-        if (!gbDoorIsLockable && (giLinkOfPaired >= 0 || link_num != giLinkOfPaired)) return;
-        if (msg == gsUnlockMessage) gbDoorIsLocked = FALSE;
-        else if (msg == gsLockMessage) gbDoorIsLocked = TRUE;
-        else if ( (msg == "opendoor" && !gbDoorIsLocked && gbDoorIsClosed && link_num == giLinkOfPaired) || (msg == "closedoor" && !gbDoorIsClosed && link_num == giLinkOfPaired) ) TriggerTheDoor();
+        if (gbDoorIsLockable)
+        {
+            if (msg == gsUnlockMessage) gbDoorIsLocked = FALSE;
+            else if (msg == gsLockMessage) gbDoorIsLocked = TRUE;
+        }
+        else if ( (msg == "opendoor" && !gbDoorIsLocked && gbDoorIsClosed) || (msg == "closedoor" && !gbDoorIsClosed) ) TriggerTheDoor();
     }
 }
 
