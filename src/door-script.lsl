@@ -1,5 +1,5 @@
 //### door-script.lsl
-// Version 1.10
+// Version 1.20
 //
 // DOOR SCRIPT FOR SWINGING, ROTATING AND SLIDING DOORS.
 // Works on stand-alone prim doors, a door of several linked parts,

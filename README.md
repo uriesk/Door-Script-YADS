@@ -21,8 +21,8 @@ All the configuration happens in the Description field of the door. See this ima
 **Caveats:**
 
 - Door Type "rotate" has to be used for doors where the center of the axes is at the edge of the door (many doors are made like this, so that scripting is easier - simple rotation is easier than rotating and moving). If the center of the axes is in the center of the door, "hinged" has to be used. See the examples.
-
 - The script can be triggered by other scripts by sending the link message "opendoor" or "closedoor"
+- "paired" does not have to be given as link number, but can also be given as the name of a linked prim
 
 ## Examples
 - A rotating door as described above (center of the axes on the edge):
