@@ -419,6 +419,10 @@ SlideTheDoor(integer iSlideDir, integer linkNumber)
 
 default
 {
+    state_entry()
+    {
+        LoadConfig();
+    }
     on_rez(integer iParam) 
     {
         llResetScript();
