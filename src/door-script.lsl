@@ -100,12 +100,14 @@ integer gbBumpOpen = FALSE;
 // NOTHING FROM HERE DOWN SHOULD BE TAMPERED WITH, UNLESS YOU'RE A SCRIPTER.
 //
 //
-string     gsDescription;
 integer    gbDoorIsClosed = TRUE;
 integer    gbDoorIsLocked = FALSE;
 vector     gvClosedDoorPos;
 rotation   gqClosedDoorRot;
 integer    giClosedDoorPhysics;
+integer    giLinkNumber;
+// used to track if our description changed
+string     gsDescription;
 //
 
 PlaySound(string name)
@@ -113,12 +115,24 @@ PlaySound(string name)
     if(llGetInventoryType(name) == INVENTORY_SOUND && gbPlaySound) llTriggerSound(name, 1.0);
 }
 
+integer GetLinkNumberByName(string targetName)
+{
+    integer i = llGetNumberOfPrims();
+    while (i >= 1)
+    {
+        if (llGetLinkName(i) == targetName) return i;
+        i -= 1;
+    }
+    return -1;
+}
+
 LoadConfig()
 {
     string desc = llGetObjectDesc();
-    if (desc == gsDescription) return;
+    if (desc == gsDescription && llGetLinkNumber() == giLinkNumber) return;
     gsDescription = desc;
-    // description changed
+    giLinkNumber = llGetLinkNumber();
+    // description or link number changed
     giLinkOfPaired = -1;
     giLinkOfSecondPart = -1;
     gfSecondToLeaveOpen = 0.0;
@@ -167,9 +181,17 @@ LoadConfig()
         }
         else if (sKey == "PAIRED" || sKey == "PRD") {
             giLinkOfPaired = llList2Integer(lKeys, ++iCnt);
+            if (giLinkOfPaired == 0)
+            {
+                giLinkOfPaired = GetLinkNumberByName(llList2String(lKeys, iCnt));
+            }
         }
         else if (sKey == "PART") {
             giLinkOfSecondPart = llList2Integer(lKeys, ++iCnt);
+            if (giLinkOfSecondPart == 0)
+            {
+                giLinkOfSecondPart = GetLinkNumberByName(llList2String(lKeys, iCnt));
+            }
         }
         else if (sKey == "AUTOCLOSE" || sKey == "AC") {
             gfSecondToLeaveOpen = llList2Float(lKeys, ++iCnt);
@@ -189,7 +211,6 @@ TriggerTheDoor()
     llResetTime();
     integer iDirection;
     LoadConfig();
-    integer ownLinkNumber = llGetLinkNumber();
     //
     iDirection = giOpenDirection;
     if (gbDoorIsClosed)
@@ -201,7 +222,7 @@ TriggerTheDoor()
         PlaySound("open");
         if (gbOpenPhantom)
         {
-            if (ownLinkNumber > 1)
+            if (giLinkNumber > 1)
             {
                 giClosedDoorPhysics = llList2Integer(lDoorParams, 2);
                 llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE, PRIM_PHYSICS_SHAPE_NONE]);
@@ -222,18 +243,18 @@ TriggerTheDoor()
     }
 
     // ROTATE
-    if (giDoorType == 1) RotateTheDoor(iDirection, ownLinkNumber);
+    if (giDoorType == 1) RotateTheDoor(iDirection, giLinkNumber);
     // HINGED
-    else if (giDoorType == 2) SwingTheDoor(iDirection, ownLinkNumber);
+    else if (giDoorType == 2) SwingTheDoor(iDirection, giLinkNumber);
     // SLIDE
-    else if (giDoorType == 3) SlideTheDoor(iDirection, ownLinkNumber);
+    else if (giDoorType == 3) SlideTheDoor(iDirection, giLinkNumber);
 
     if (gbDoorIsClosed)
     {
         PlaySound("closed");
         if (gbOpenPhantom)
         {
-            if (ownLinkNumber > 1)
+            if (giLinkNumber > 1)
             {
                 llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE, giClosedDoorPhysics]);
             }
