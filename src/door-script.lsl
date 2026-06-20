@@ -117,6 +117,15 @@ LoadConfig()
     string desc = llGetObjectDesc();
     if (desc == gsDescription) return;
     gsDescription = desc;
+    // description changed
+    giLinkOfPaired = -1;
+    giLinkOfSecondPart = -1;
+    gfSecondToLeaveOpen = 0.0;
+    giPlaySound = FALSE;
+    giOpenPhantom = FALSE;
+    gbDoorIsLockable = FALSE;
+    gbBumpOpen = FALSE;
+
     list lKeys = llParseString2List(gsDescription, [" "], [""]);
     integer iLength = llGetListLength(lKeys);
     if (iLength <= 1) return;
