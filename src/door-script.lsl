@@ -69,8 +69,8 @@ integer giUnitsToOpenDoor = 90;
 integer giUnitsPerStep = 2;
 float   gfSecondsPausePerStep = 0.004;
 // Do we wish for the door to automatically close after some interval?
-integer gbCloseAfterTimeExpires = FALSE;
-float   gfSecondToLeaveOpen = 5.0; // Does nothing unless above is TRUE.
+// 0 if not, seconds otherwise
+float   gfSecondToLeaveOpen = 0.0; // Does nothing unless above is TRUE.
 // Do we play sounds on open doors?
 // If so, place the sound files into the object inventory
 integer giPlaySound = FALSE;
@@ -86,8 +86,11 @@ string gsUnlockMessage = "unlock";
 string gsLockMessage = "lock";
 // set if the door is paired with another door and its link number
 // use this if you have a paire of doors that needs to open/close together
-integer gbDoorIsPaired = FALSE;
-integer giLinkOfPaired = 10;
+// -1 if none
+integer giLinkOfPaired = -1;
+// if the door has a second part that needs to move with it (e.g. a glass pane)
+// set it to its link number or -1 if none
+integer giLinkOfSecondPart = -1;
 // set if the door should open on collision (when Avatar is bumping into it)
 integer gbBumpOpen = FALSE;
 //
@@ -149,11 +152,12 @@ LoadConfig()
             giUnitsToOpenDoor = (integer)(llGetSubString(sKey, 0, -2));
         }
         else if (sKey == "PAIRED" || sKey == "PRD") {
-            gbDoorIsPaired = TRUE;
             giLinkOfPaired = llList2Integer(lKeys, ++iCnt);
         }
+        else if (sKey == "PART") {
+            giLinkOfSecondPart = llList2Integer(lKeys, ++iCnt);
+        }
         else if (sKey == "AUTOCLOSE" || sKey == "AC") {
-            gbCloseAfterTimeExpires = TRUE;
             gfSecondToLeaveOpen = llList2Float(lKeys, ++iCnt);
         }
         else if (llSubStringIndex(sKey, "/") != -1) {
@@ -168,7 +172,7 @@ LoadConfig()
 ResetPhantom()
 {
     if (!giOpenPhantom) return;
-    if (llGetLinkNumber() != 0)
+    if (llGetLinkNumber() > 1)
     {
         llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE, giClosedDoorPhysics]);
     }
@@ -184,6 +188,7 @@ TriggerTheDoor()
     llResetTime();
     integer iDirection;
     LoadConfig();
+    integer ownLinkNumber = llGetLinkNumber();
     //
     iDirection = giOpenDirection;
     if (gbDoorIsClosed)
@@ -195,7 +200,7 @@ TriggerTheDoor()
         PlaySound(gsOpeningSound);
         if (giOpenPhantom)
         {
-            if (llGetLinkNumber() != 0)
+            if (ownLinkNumber > 1)
             {
                 giClosedDoorPhysics = llList2Integer(lDoorParams, 2);
                 llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE, PRIM_PHYSICS_SHAPE_NONE]);
@@ -206,21 +211,21 @@ TriggerTheDoor()
                 llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHANTOM, TRUE]);
             }
         }
-        if (gbDoorIsPaired) llMessageLinked(giLinkOfPaired, 0, "opendoor", NULL_KEY);
+        if (giLinkOfPaired >= 0) llMessageLinked(giLinkOfPaired, 0, "opendoor", NULL_KEY);
     }
     else
     {
         iDirection = iDirection * -1;
         PlaySound(gsClosingSound);
-        if (gbDoorIsPaired) llMessageLinked(giLinkOfPaired, 0, "closedoor", NULL_KEY);
+        if (giLinkOfPaired >= 0) llMessageLinked(giLinkOfPaired, 0, "closedoor", NULL_KEY);
     }
     //
-    if (gsDoorType == "ROTATE") RotateTheDoor(iDirection);
-    if (gsDoorType == "HINGED") SwingTheDoor(iDirection);
-    if (gsDoorType == "SLIDE") SlideTheDoor(iDirection);
+    if (gsDoorType == "ROTATE") RotateTheDoor(iDirection, ownLinkNumber);
+    else if (gsDoorType == "HINGED") SwingTheDoor(iDirection, ownLinkNumber);
+    else if (gsDoorType == "SLIDE") SlideTheDoor(iDirection, ownLinkNumber);
 }
 
-RotateTheDoor(integer iSwingDir)
+RotateTheDoor(integer iSwingDir, integer linkNumber)
 {
     rotation   qDoorRot;
     integer    iStepCount;
@@ -228,7 +233,8 @@ RotateTheDoor(integer iSwingDir)
     rotation   qNewRot;
     vector     vRotAxes;
     //
-    qDoorRot = llGetLocalRot();
+    list lParams = llGetLinkPrimitiveParams(linkNumber, [PRIM_ROT_LOCAL]);
+    qDoorRot = llList2Rot(lParams, 0);
     vRotAxes = <0.0, 0.0, 0.0>;
     if (gsMovementAxes == "X") vRotAxes.x = 1.0;
     else if (gsMovementAxes == "Y") vRotAxes.y = 1.0;
@@ -238,14 +244,16 @@ RotateTheDoor(integer iSwingDir)
     {
         qHingeOrbitAngle = llEuler2Rot(vRotAxes * iStepCount * giUnitsPerStep * DEG_TO_RAD * iSwingDir);
         qNewRot = qHingeOrbitAngle * qDoorRot;
-        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_ROT_LOCAL, qNewRot]);
+        llSetLinkPrimitiveParamsFast(linkNumber, [PRIM_ROT_LOCAL, qNewRot]);
+        if (giLinkOfSecondPart > 0) llSetLinkPrimitiveParamsFast(giLinkOfSecondPart, [PRIM_ROT_LOCAL, qNewRot]);
         if (gfSecondsPausePerStep) llSleep(gfSecondsPausePerStep);
     }
     gbDoorIsClosed = !gbDoorIsClosed;
     //make sure that it is in the wanted position (adjust for rounding errors)
     if (gbDoorIsClosed)
     {
-        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_ROT_LOCAL, gqClosedDoorRot]);
+        llSetLinkPrimitiveParamsFast(linkNumber, [PRIM_ROT_LOCAL, gqClosedDoorRot]);
+        if (giLinkOfSecondPart > 0) llSetLinkPrimitiveParamsFast(giLinkOfSecondPart, [PRIM_ROT_LOCAL, gqClosedDoorRot]);
         PlaySound(gsClosedSound);
         ResetPhantom();
     }
@@ -253,12 +261,13 @@ RotateTheDoor(integer iSwingDir)
     {
         qHingeOrbitAngle = llEuler2Rot(vRotAxes * giUnitsToOpenDoor * DEG_TO_RAD * iSwingDir);
         qNewRot = qHingeOrbitAngle * qDoorRot;
-        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_ROT_LOCAL, qNewRot]);
-        if (gbCloseAfterTimeExpires) llSetTimerEvent(gfSecondToLeaveOpen);
+        llSetLinkPrimitiveParamsFast(linkNumber, [PRIM_ROT_LOCAL, qNewRot]);
+        if (giLinkOfSecondPart > 0) llSetLinkPrimitiveParamsFast(giLinkOfSecondPart, [PRIM_ROT_LOCAL, qNewRot]);
+        if (gfSecondToLeaveOpen > 0.1) llSetTimerEvent(gfSecondToLeaveOpen);
     }
 }
 
-SwingTheDoor(integer iSwingDir)
+SwingTheDoor(integer iSwingDir, integer linkNumber)
 {
     // This can be thought of as quite similar to the problem of 
     // one prim orbiting another while continuing to face it, just
@@ -278,9 +287,10 @@ SwingTheDoor(integer iSwingDir)
     rotation   qNewRot;
     vector     vRotAxes;
     //
-    vDoorPos = llGetLocalPos(); 
-    qDoorRot = llGetLocalRot();
-    vDoorScale = llGetScale();
+    list lParams = llGetLinkPrimitiveParams(linkNumber, [PRIM_POS_LOCAL, PRIM_ROT_LOCAL, PRIM_SIZE]);
+    vDoorPos = llList2Vector(lParams, 0);
+    qDoorRot = llList2Rot(lParams, 1);
+    vDoorScale = llList2Vector(lParams, 2);
     vOrigRadiusVector = <0.0, 0.0, 0.0>; 
     vRotAxes = <0.0, 0.0, 0.0>;
     // Figure out center-to-side distance of door, according to the longer side of the none-rotation axis.
@@ -308,14 +318,16 @@ SwingTheDoor(integer iSwingDir)
         vNewRadiusVector = vOrigRadiusVector * qHingeOrbitAngle * qDoorRot;
         vNewPos = vHingePos + vNewRadiusVector;
         qNewRot = qHingeOrbitAngle * qDoorRot;
-        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_POS_LOCAL, vNewPos, PRIM_ROT_LOCAL, qNewRot]);
+        llSetLinkPrimitiveParamsFast(linkNumber, [PRIM_POS_LOCAL, vNewPos, PRIM_ROT_LOCAL, qNewRot]);
+        if (giLinkOfSecondPart > 0) llSetLinkPrimitiveParamsFast(giLinkOfSecondPart, [PRIM_POS_LOCAL, vNewPos, PRIM_ROT_LOCAL, qNewRot]);
         if (gfSecondsPausePerStep) llSleep(gfSecondsPausePerStep);
     }
     gbDoorIsClosed = !gbDoorIsClosed;
     //make sure that it is in the wanted position (adjust for rounding errors)
     if (gbDoorIsClosed)
     {
-        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_POS_LOCAL, gvClosedDoorPos, PRIM_ROT_LOCAL, gqClosedDoorRot]);
+        llSetLinkPrimitiveParamsFast(linkNumber, [PRIM_POS_LOCAL, gvClosedDoorPos, PRIM_ROT_LOCAL, gqClosedDoorRot]);
+        if (giLinkOfSecondPart > 0) llSetLinkPrimitiveParamsFast(giLinkOfSecondPart, [PRIM_POS_LOCAL, gvClosedDoorPos, PRIM_ROT_LOCAL, gqClosedDoorRot]);
         PlaySound(gsClosedSound);
         ResetPhantom();
     }
@@ -325,12 +337,13 @@ SwingTheDoor(integer iSwingDir)
         vNewRadiusVector = vOrigRadiusVector * qHingeOrbitAngle * qDoorRot;
         vNewPos = vHingePos + vNewRadiusVector;
         qNewRot = qHingeOrbitAngle * qDoorRot;
-        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_POS_LOCAL, vNewPos, PRIM_ROT_LOCAL, qNewRot]);
-        if (gbCloseAfterTimeExpires) llSetTimerEvent(gfSecondToLeaveOpen);
+        llSetLinkPrimitiveParamsFast(linkNumber, [PRIM_POS_LOCAL, vNewPos, PRIM_ROT_LOCAL, qNewRot]);
+        if (giLinkOfSecondPart > 0) llSetLinkPrimitiveParamsFast(giLinkOfSecondPart, [PRIM_POS_LOCAL, vNewPos, PRIM_ROT_LOCAL, qNewRot]);
+        if (gfSecondToLeaveOpen > 0.1) llSetTimerEvent(gfSecondToLeaveOpen);
     }
 }
 
-SlideTheDoor(integer iSlideDir)
+SlideTheDoor(integer iSlideDir, integer linkNumber)
 {
     vector     vDoorPos;
     rotation   qDoorRot;
@@ -342,9 +355,10 @@ SlideTheDoor(integer iSlideDir)
     vector     vMoveDirection;
     //
     iSlideDir = iSlideDir * -1;
-    vDoorPos = llGetLocalPos(); 
-    qDoorRot = llGetLocalRot();
-    vDoorScale = llGetScale();
+    list lParams = llGetLinkPrimitiveParams(linkNumber, [PRIM_POS_LOCAL, PRIM_ROT_LOCAL, PRIM_SIZE]);
+    vDoorPos = llList2Vector(lParams, 0);
+    qDoorRot = llList2Rot(lParams, 1);
+    vDoorScale = llList2Vector(lParams, 2);
     vMoveDirection = <0.0, 0.0, 0.0>;
     if (gsMovementAxes == "X") {
         vMoveDirection.x = 1.0;
@@ -363,14 +377,16 @@ SlideTheDoor(integer iSlideDir)
     {
         vOpenVector = ( vMoveDirection * giUnitsPerStep * iStepCount * fDoorWidth / 100 * iSlideDir) * qDoorRot;
         vNewPos = vDoorPos + vOpenVector;
-        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_POS_LOCAL, vNewPos]);
+        llSetLinkPrimitiveParamsFast(linkNumber, [PRIM_POS_LOCAL, vNewPos]);
+        if (giLinkOfSecondPart > 0) llSetLinkPrimitiveParamsFast(giLinkOfSecondPart, [PRIM_POS_LOCAL, vNewPos]);
         if (gfSecondsPausePerStep) llSleep(gfSecondsPausePerStep);
     }
     gbDoorIsClosed = !gbDoorIsClosed;
     //make sure that it is in the wanted position (adjust for rounding errors)
     if (gbDoorIsClosed)
     {
-        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_POS_LOCAL, gvClosedDoorPos, PRIM_ROT_LOCAL, gqClosedDoorRot]);
+        llSetLinkPrimitiveParamsFast(linkNumber, [PRIM_POS_LOCAL, gvClosedDoorPos, PRIM_ROT_LOCAL, gqClosedDoorRot]);
+        if (giLinkOfSecondPart > 0) llSetLinkPrimitiveParamsFast(giLinkOfSecondPart, [PRIM_POS_LOCAL, gvClosedDoorPos, PRIM_ROT_LOCAL, gqClosedDoorRot]);
         PlaySound(gsClosedSound);
         ResetPhantom();
     }
@@ -378,8 +394,10 @@ SlideTheDoor(integer iSlideDir)
     {
         vOpenVector = ( vMoveDirection * giUnitsToOpenDoor * fDoorWidth / 100 * iSlideDir) * qDoorRot;
         vNewPos = vDoorPos + vOpenVector;
-        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_POS_LOCAL, vNewPos]);
-        if (gbCloseAfterTimeExpires) llSetTimerEvent(gfSecondToLeaveOpen);
+        llSetLinkPrimitiveParamsFast(linkNumber, [PRIM_POS_LOCAL, vNewPos]);
+        if (giLinkOfSecondPart > 0) llSetLinkPrimitiveParamsFast(giLinkOfSecondPart, [PRIM_POS_LOCAL, vNewPos]);
+        
+        if (gfSecondToLeaveOpen > 0.1) llSetTimerEvent(gfSecondToLeaveOpen);
     }
 }
 
@@ -389,10 +407,6 @@ default
     on_rez(integer iParam) 
     {
         llResetScript();
-    }
-    state_entry()
-    {
-        LoadConfig();
     }
     touch_start(integer iNumDetected) 
     {
@@ -413,7 +427,7 @@ default
     }
     link_message(integer link_num, integer num, string msg, key id)
     {
-        if (!gbDoorIsLockable && (!gbDoorIsPaired || link_num != giLinkOfPaired)) return;
+        if (!gbDoorIsLockable && (giLinkOfPaired >= 0 || link_num != giLinkOfPaired)) return;
         if (msg == gsUnlockMessage) gbDoorIsLocked = FALSE;
         else if (msg == gsLockMessage) gbDoorIsLocked = TRUE;
         else if ( (msg == "opendoor" && !gbDoorIsLocked && gbDoorIsClosed && link_num == giLinkOfPaired) || (msg == "closedoor" && !gbDoorIsClosed && link_num == giLinkOfPaired) ) TriggerTheDoor();
