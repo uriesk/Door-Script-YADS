@@ -108,8 +108,8 @@ integer    giClosedDoorPhysics;
 
 PlaySound(string name)
 {
-    if(llGetInventoryType(name) == INVENTORY_SOUND && giPlaySound)
-        llTriggerSound(name,1.0);
+    if(llGetInventoryType(name) == INVENTORY_SOUND && giPlaySound) llTriggerSound(name, 1.0);
+    llMessageLinked(LINK_SET, 0, name, NULL_KEY);
 }
 
 LoadConfig()
@@ -180,19 +180,6 @@ LoadConfig()
 
 }
 
-ResetPhantom()
-{
-    if (!giOpenPhantom) return;
-    if (llGetLinkNumber() > 1)
-    {
-        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE, giClosedDoorPhysics]);
-    }
-    else
-    {
-        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHANTOM, giClosedDoorPhysics]);
-    }
-}
-
 TriggerTheDoor()
 {
     if (llGetTime() < 0.8) return;
@@ -240,7 +227,21 @@ TriggerTheDoor()
     if (gbDoorIsClosed)
     {
         PlaySound("closed");
-        ResetPhantom();
+        if (giOpenPhantom)
+        {
+            if (ownLinkNumber > 1)
+            {
+                llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHYSICS_SHAPE_TYPE, giClosedDoorPhysics]);
+            }
+            else
+            {
+                llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_PHANTOM, giClosedDoorPhysics]);
+            }
+        }
+    }
+    else
+    {
+        PlaySound("opened");
     }
 }
 
